@@ -28,6 +28,7 @@ class ModuleInterface:
         self.exception = module_controller.module_error
         self.tsc = module_controller.temporary_settings_controller
         self.default_cover = module_controller.orpheus_options.default_cover_options
+        self.disable_subscription_check = module_controller.orpheus_options.disable_subscription_check
         if self.default_cover.file_type is ImageFileTypeEnum.webp:
             self.default_cover.file_type = ImageFileTypeEnum.jpg
 
@@ -46,18 +47,20 @@ class ModuleInterface:
             QualityEnum.LOSSLESS: 'FLAC',
             QualityEnum.HIFI: 'FLAC'
         }
+        self.format = self.quality_parse[module_controller.orpheus_options.quality_tier]
         self.compression_nums = {
             CoverCompressionEnum.high: 80,
             CoverCompressionEnum.low: 50
         }
-        if arl and not module_controller.orpheus_options.disable_subscription_check and (self.quality_parse[module_controller.orpheus_options.quality_tier] not in self.session.available_formats):
-            print('Deezer: quality set in the settings is not accessible by the current subscription')
+        if arl:
+            self.check_sub()
 
-    def login(self, email: str, password: str): # Called automatically by Orpheus when standard_login is flagged, otherwise optional
+    def login(self, email: str, password: str):
         arl, _ = self.session.login_via_email(email, password)
         self.tsc.set('arl', arl)
+        self.check_sub()
 
-    def get_track_info(self, track_id: str, quality_tier: QualityEnum, codec_options: CodecOptions, data={}) -> TrackInfo: # Mandatory
+    def get_track_info(self, track_id: str, quality_tier: QualityEnum, codec_options: CodecOptions, data={}) -> TrackInfo:
         format = self.quality_parse[quality_tier]
         track = data[track_id] if data and track_id in data else self.session.get_track(track_id)
         t_data = track['DATA']
@@ -138,7 +141,7 @@ class ModuleInterface:
             temp_file_path = path
         )
 
-    def get_album_info(self, album_id: str, data={}) -> Optional[AlbumInfo]: # Mandatory if ModuleModes.download
+    def get_album_info(self, album_id: str, data={}) -> Optional[AlbumInfo]:
         album = data[album_id] if album_id in data else self.session.get_album(album_id)
         a_data = album['DATA']
 
@@ -152,7 +155,6 @@ class ModuleInterface:
             cover_url = self.get_image_url(a_data['ALB_PICTURE'], ImageType.cover, self.default_cover.file_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
             cover_type = self.default_cover.file_type,
             all_track_cover_jpg_url = self.get_image_url(a_data['ALB_PICTURE'], ImageType.cover, ImageFileTypeEnum.jpg, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
-            #track_extra_kwargs = {'data': ''} # optional, whatever you want
         )
 
     def get_playlist_info(self, playlist_id: str, data={}) -> PlaylistInfo:
@@ -165,10 +167,9 @@ class ModuleInterface:
             tracks = [t['SNG_ID'] for t in playlist['SONGS']['data']],
             release_year = p_data['DATE_ADD'].split('-')[0],
             creator_id = p_data['PARENT_USER_ID'],
-            cover_url = self.get_image_url(p_data['PLAYLIST_PICTURE'], ImageType.playlist, self.default_cover.file_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]), # optional
+            cover_url = self.get_image_url(p_data['PLAYLIST_PICTURE'], ImageType.playlist, self.default_cover.file_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
             cover_type = self.default_cover.file_type,
             description = p_data['DESCRIPTION'],
-            #track_extra_kwargs = {'data': ''} # optional, whatever you want
         )
 
     def get_artist_info(self, artist_id: str, get_credited_albums: bool, artist_name = None) -> ArtistInfo:
@@ -177,7 +178,6 @@ class ModuleInterface:
         return ArtistInfo(
             name = name,
             albums = self.session.get_artist_album_ids(artist_id, 0, -1, get_credited_albums),
-            #album_extra_kwargs = {'data': ''}, # optional, whatever you want
         )
 
     def get_track_credits(self, track_id: str, data={}):
@@ -258,3 +258,7 @@ class ModuleInterface:
         }[file_type]
 
         return f'https://cdns-images.dzcdn.net/images/{img_type.name}/{md5}/{filename}'
+    
+    def check_sub(self):
+        if not self.disable_subscription_check and (self.format not in self.session.available_formats):
+            print('Deezer: quality set in the settings is not accessible by the current subscription')
