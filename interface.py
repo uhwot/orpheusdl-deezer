@@ -41,6 +41,7 @@ class ModuleInterface:
                 self.login(settings['email'], settings['password'])
 
         self.quality_parse = {
+            QualityEnum.MINIMUM: 'MP3_128',
             QualityEnum.LOW: 'MP3_128',
             QualityEnum.MEDIUM: 'MP3_320',
             QualityEnum.HIGH: 'MP3_320',
