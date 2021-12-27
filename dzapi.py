@@ -6,6 +6,14 @@ from Cryptodome.Hash import MD5
 from Cryptodome.Cipher import Blowfish, AES
 from utils.utils import create_requests_session
 
+class APIError(Exception):
+    def __init__(self, type, msg, payload):
+        self.type = type
+        self.msg = msg
+        self.payload = payload
+    def __str__(self):
+        return ', '.join((self.type, self.msg, str(self.payload)))
+
 class DeezerAPI:
     def __init__(self, exception, client_id, client_secret, bf_secret, track_url_key):
         self.gw_light_url = 'https://www.deezer.com/ajax/gw-light.php'
@@ -13,7 +21,7 @@ class DeezerAPI:
         self.exception = exception
         self.client_id = client_id
         self.client_secret = client_secret
-        
+
         self.legacy_url_cipher = AES.new(track_url_key.encode('ascii'), AES.MODE_ECB)
         self.bf_secret = bf_secret.encode('ascii')
 
@@ -43,9 +51,9 @@ class DeezerAPI:
         resp = self.s.post(self.gw_light_url, params=params, json=payload).json()
 
         if resp['error']:
-            key = list(resp['error'].keys())[0]
+            type = list(resp['error'].keys())[0]
             msg = list(resp['error'].values())[0]
-            raise self.exception((key, msg))
+            raise APIError(type, msg, resp['payload'])
 
         if method == 'deezer.getUserData':
             self.api_token = resp['results']['checkForm']
@@ -116,7 +124,13 @@ class DeezerAPI:
         return self._api_call('song.getData', {'sng_id': resp['id']})
 
     def get_album(self, id):
-        return self._api_call('deezer.pageAlbum', {'alb_id': id, 'lang': self.language})
+        try:
+            return self._api_call('deezer.pageAlbum', {'alb_id': id, 'lang': self.language})
+        except APIError as e:
+            if e.payload:
+                return self._api_call('deezer.pageAlbum', {'alb_id': e.payload['FALLBACK']['ALB_ID'], 'lang': self.language})
+            else:
+                raise e
 
     def get_playlist(self, id, nb, start):
         return self._api_call('deezer.pagePlaylist', {'nb': nb, 'start': start, 'playlist_id': id, 'lang': self.language, 'tab': 0, 'tags': True, 'header': True})
