@@ -117,7 +117,7 @@ class ModuleInterface:
             artists = [a['ART_NAME'] for a in t_data['ARTISTS']],
             tags = tags,
             codec = codec,
-            cover_url = self.get_image_url(t_data['ALB_PICTURE'], ImageType.cover, self.default_cover.file_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]), # make sure to check module_controller.orpheus_options.default_cover_options
+            cover_url = self.get_image_url(t_data['ALB_PICTURE'], ImageType.cover, self.default_cover.file_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
             release_year = t_data['PHYSICAL_RELEASE_DATE'].split('-')[0],
             explicit = t_data['EXPLICIT_LYRICS'] == '1',
             artist_id = t_data['ART_ID'],
