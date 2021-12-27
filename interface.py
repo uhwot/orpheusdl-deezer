@@ -78,11 +78,16 @@ class ModuleInterface:
         )
 
         countries = t_data['AVAILABLE_COUNTRIES']['STREAM_ADS']
-        can_download = (t_data[f'FILESIZE_{format}'] != '0' and self.session.country in countries) or (format not in ('MP3_320', 'FLAC') and countries)
-
         error = None
-        if not can_download:
-            error = 'Cannot download track'
+        if not countries:
+            error = 'Track not available'
+        elif format in ('MP3_320', 'FLAC'):
+            if self.session.country not in countries:
+                error = 'Track not available in your country, try downloading in 128/360RA instead'
+            elif format not in self.session.available_formats:
+                error = 'Format not available by your subscription'
+            elif t_data[f'FILESIZE_{format}'] == '0':
+                error = 'Format not available'
 
         codec = {
             'MP3_128': CodecEnum.MP3,
