@@ -62,41 +62,55 @@ class ModuleInterface:
         self.check_sub()
 
     def get_track_info(self, track_id: str, quality_tier: QualityEnum, codec_options: CodecOptions, data={}) -> TrackInfo:
-        format = self.quality_parse[quality_tier]
-        track = data[track_id] if data and track_id in data else self.session.get_track(track_id)
-        t_data = track['DATA']
+        is_user_upped = int(track_id) < 0
+        format = self.quality_parse[quality_tier] if not is_user_upped else 'MP3_MISC'
+
+        track = None
+        if data and track_id in data:
+            track = data[track_id]
+        elif not is_user_upped:
+            track = self.session.get_track(track_id)
+        else:   # user-upped tracks can't be requested with deezer.pageTrack
+            track = self.session.get_track_data(track_id)
+
+        t_data = track
+        if not is_user_upped:
+            t_data = t_data['DATA']
         if 'FALLBACK' in t_data:
             t_data = t_data['FALLBACK']
 
         tags = Tags(
             album_artist = t_data['ART_NAME'],
-            track_number = t_data['TRACK_NUMBER'],
-            copyright = t_data['COPYRIGHT'],
+            track_number = t_data.get('TRACK_NUMBER'),
+            copyright = t_data.get('COPYRIGHT'),
             isrc = t_data['ISRC'],
-            disc_number = t_data['DISK_NUMBER'],
+            disc_number = t_data.get('DISK_NUMBER'),
             replay_gain = t_data.get('GAIN'),
-            release_date = t_data['PHYSICAL_RELEASE_DATE']
+            release_date = t_data.get('PHYSICAL_RELEASE_DATE')
         )
 
-        countries = t_data['AVAILABLE_COUNTRIES']['STREAM_ADS']
         error = None
-        if not countries:
-            error = 'Track not available'
-        elif format in ('MP3_320', 'FLAC'):
-            if self.session.country not in countries:
-                error = 'Track not available in your country, try downloading in 128/360RA instead'
-            elif format not in self.session.available_formats:
-                error = 'Format not available by your subscription'
-            elif t_data[f'FILESIZE_{format}'] == '0':
-                error = 'Format not available'
+        if not is_user_upped:
+            countries = t_data['AVAILABLE_COUNTRIES']['STREAM_ADS']
+            if not countries:
+                error = 'Track not available'
+            elif format in ('MP3_320', 'FLAC'):
+                if self.session.country not in countries:
+                    error = 'Track not available in your country, try downloading in 128/360RA instead'
+                elif format not in self.session.available_formats:
+                    error = 'Format not available by your subscription'
+                elif t_data[f'FILESIZE_{format}'] == '0':
+                    error = 'Format not available'
 
         codec = {
+            'MP3_MISC': CodecEnum.MP3,
             'MP3_128': CodecEnum.MP3,
             'MP3_320': CodecEnum.MP3,
             'FLAC': CodecEnum.FLAC,
         }[format]
 
         bitrate = {
+            'MP3_MISC': None,
             'MP3_128': 128,
             'MP3_320': 320,
             'FLAC': 1411,
@@ -115,30 +129,37 @@ class ModuleInterface:
             name = t_data['SNG_TITLE'] if not t_data.get('VERSION') else f'{t_data["SNG_TITLE"]} {t_data["VERSION"]}',
             album_id = t_data['ALB_ID'],
             album = t_data['ALB_TITLE'],
-            artists = [a['ART_NAME'] for a in t_data['ARTISTS']],
+            artists = [a['ART_NAME'] for a in t_data['ARTISTS']] if 'ARTISTS' in t_data else [t_data['ART_NAME']],
             tags = tags,
             codec = codec,
             cover_url = self.get_image_url(t_data['ALB_PICTURE'], ImageType.cover, self.default_cover.file_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
-            release_year = t_data['PHYSICAL_RELEASE_DATE'].split('-')[0],
-            explicit = t_data['EXPLICIT_LYRICS'] == '1',
+            release_year = t_data['PHYSICAL_RELEASE_DATE'].split('-')[0] if 'PHYSICAL_RELEASE_DATE' in t_data else None,
+            explicit = t_data['EXPLICIT_LYRICS'] == '1' if 'EXPLICIT_LYRICS' in t_data else None,
             artist_id = t_data['ART_ID'],
             bitrate = bitrate,
             download_extra_kwargs = download_extra_kwargs,
             cover_extra_kwargs = {'data': {track_id: t_data['ALB_PICTURE']}},
-            credits_extra_kwargs = {'data': {track_id: t_data['SNG_CONTRIBUTORS']}},
+            credits_extra_kwargs = {'data': {track_id: t_data.get('SNG_CONTRIBUTORS')}},
             lyrics_extra_kwargs = {'data': {track_id: track.get('LYRICS')}},
             error = error
         )
 
     def get_track_download(self, id, track_token, track_token_expiry, format, md5_origin, media_version):
         path = create_temp_filename()
+        format_num = {
+            'MP3_MISC': '0',
+            'MP3_128': '1',
+            'MP4_RA1': '13',
+            'MP4_RA2': '14',
+            'MP4_RA3': '15'
+        }[format]
 
         # legacy urls don't have country restrictions, but aren't available for 320 and flac
         # you can still get shit like 360RA with those though. bruh moment
         if format in ('MP3_320', 'FLAC'):
             url = self.session.get_track_url(id, track_token, track_token_expiry, format)
         else:
-            url = self.session.get_legacy_track_url(md5_origin, '1', id, media_version)
+            url = self.session.get_legacy_track_url(md5_origin, format_num, id, media_version)
 
         self.session.dl_track(id, url, path)
 
@@ -167,6 +188,11 @@ class ModuleInterface:
         playlist = data[playlist_id] if playlist_id in data else self.session.get_playlist(playlist_id, -1, 0)
         p_data = playlist['DATA']
 
+        user_upped_dict = {}
+        for t in playlist['SONGS']['data']:
+            if t['SNG_ID'] < 0:
+                user_upped_dict[t['SNG_ID']] = t
+
         return PlaylistInfo(
             name = p_data['TITLE'],
             creator = p_data['PARENT_USERNAME'],
@@ -176,6 +202,7 @@ class ModuleInterface:
             cover_url = self.get_image_url(p_data['PLAYLIST_PICTURE'], ImageType.playlist, self.default_cover.file_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
             cover_type = self.default_cover.file_type,
             description = p_data['DESCRIPTION'],
+            track_extra_kwargs = {'data': user_upped_dict}
         )
 
     def get_artist_info(self, artist_id: str, get_credited_albums: bool, artist_name = None) -> ArtistInfo:
@@ -187,6 +214,9 @@ class ModuleInterface:
         )
 
     def get_track_credits(self, track_id: str, data={}):
+        if int(track_id) < 0:
+            return []
+
         credits = data[track_id] if track_id in data else self.session.get_track_contributors(track_id)
         if not credits:
             return []
@@ -201,6 +231,9 @@ class ModuleInterface:
         return CoverInfo(url=url, file_type=cover_options.file_type)
 
     def get_track_lyrics(self, track_id: str, data={}) -> LyricsInfo:
+        if int(track_id) < 0:
+            return LyricsInfo()
+
         try:
             lyrics = data[track_id] if track_id in data else self.session.get_track_lyrics(track_id)
         except self.exception:

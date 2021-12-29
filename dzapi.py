@@ -107,6 +107,9 @@ class DeezerAPI:
     def get_track(self, id):
         return self._api_call('deezer.pageTrack', {'sng_id': id})
 
+    def get_track_data(self, id):
+        return self._api_call('song.getData', {'sng_id': id})
+
     def get_track_lyrics(self, id):
         return self._api_call('song.getLyrics', {'sng_id': id})
 
