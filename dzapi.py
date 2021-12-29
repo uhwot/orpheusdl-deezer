@@ -123,8 +123,15 @@ class DeezerAPI:
         resp = self.s.get(f'https://api.deezer.com/track/isrc:{isrc}').json()
         if 'error' in resp:
             raise self.exception((resp['error']['type'], resp['error']['message'], resp['error']['code']))
-        
-        return self._api_call('song.getData', {'sng_id': resp['id']})
+
+        return {
+            'SNG_ID': resp['id'],
+            'SNG_TITLE': resp['title_short'],
+            'VERSION': resp['title_version'],
+            'ARTISTS': [{'ART_NAME': a['name']} for a in resp['contributors']],
+            'EXPLICIT_LYRICS': str(int(resp['explicit_lyrics'])),
+            'ALB_TITLE': resp['album']['title']
+        }
 
     def get_album(self, id):
         try:
