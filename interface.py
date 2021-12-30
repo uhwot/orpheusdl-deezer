@@ -95,18 +95,32 @@ class ModuleInterface:
             if not countries:
                 error = 'Track not available'
             elif format in ('MP3_320', 'FLAC'):
-                if self.session.country not in countries:
-                    error = 'Track not available in your country, try downloading in 128/360RA instead'
-                elif format not in self.session.available_formats:
-                    error = 'Format not available by your subscription'
-                elif t_data[f'FILESIZE_{format}'] == '0':
-                    error = 'Format not available'
+                formats_360 = ['MP4_RA3', 'MP4_RA2', 'MP4_RA1']
+                if quality_tier is QualityEnum.HIFI and codec_options.spatial_codecs:
+                    # deezer has three different 360ra qualities, so this checks the highest quality one available
+                    # if there isn't any it just gets FLAC instead
+                    for f in formats_360:
+                        if self.session.check_format(t_data['MD5_ORIGIN'], f, t_data['SNG_ID'], t_data['MEDIA_VERSION']):
+                            format = f
+                            break
+                
+                if format not in formats_360:
+                    if self.session.country not in countries:
+                        error = 'Track not available in your country, try downloading in 128/360RA instead'
+                    elif format not in self.session.available_formats:
+                        error = 'Format not available by your subscription'
+                    elif t_data[f'FILESIZE_{format}'] == '0':
+                        error = 'Format not available'
+                
 
         codec = {
             'MP3_MISC': CodecEnum.MP3,
             'MP3_128': CodecEnum.MP3,
             'MP3_320': CodecEnum.MP3,
             'FLAC': CodecEnum.FLAC,
+            'MP4_RA1': CodecEnum.MHA1,
+            'MP4_RA2': CodecEnum.MHA1,
+            'MP4_RA3': CodecEnum.MHA1,
         }[format]
 
         bitrate = {
@@ -114,6 +128,9 @@ class ModuleInterface:
             'MP3_128': 128,
             'MP3_320': 320,
             'FLAC': 1411,
+            'MP4_RA1': None,
+            'MP4_RA2': None,
+            'MP4_RA3': None,
         }[format]
 
         download_extra_kwargs = {
@@ -136,6 +153,8 @@ class ModuleInterface:
             release_year = t_data['PHYSICAL_RELEASE_DATE'].split('-')[0] if 'PHYSICAL_RELEASE_DATE' in t_data else None,
             explicit = t_data['EXPLICIT_LYRICS'] == '1' if 'EXPLICIT_LYRICS' in t_data else None,
             artist_id = t_data['ART_ID'],
+            bit_depth = 24 if codec is CodecEnum.MHA1 else 16,
+            sample_rate = 48 if codec is CodecEnum.MHA1 else 44.1,
             bitrate = bitrate,
             download_extra_kwargs = download_extra_kwargs,
             cover_extra_kwargs = {'data': {track_id: t_data['ALB_PICTURE']}},
@@ -146,20 +165,13 @@ class ModuleInterface:
 
     def get_track_download(self, id, track_token, track_token_expiry, format, md5_origin, media_version):
         path = create_temp_filename()
-        format_num = {
-            'MP3_MISC': '0',
-            'MP3_128': '1',
-            'MP4_RA1': '13',
-            'MP4_RA2': '14',
-            'MP4_RA3': '15'
-        }[format]
 
         # legacy urls don't have country restrictions, but aren't available for 320 and flac
         # you can still get shit like 360RA with those though. bruh moment
         if format in ('MP3_320', 'FLAC'):
             url = self.session.get_track_url(id, track_token, track_token_expiry, format)
         else:
-            url = self.session.get_legacy_track_url(md5_origin, format_num, id, media_version)
+            url = self.session.get_legacy_track_url(md5_origin, format, id, media_version)
 
         self.session.dl_track(id, url, path)
 

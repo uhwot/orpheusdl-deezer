@@ -4,6 +4,7 @@ from time import time
 from math import ceil
 from Cryptodome.Hash import MD5
 from Cryptodome.Cipher import Blowfish, AES
+from requests.models import HTTPError
 from utils.utils import create_requests_session
 
 class APIError(Exception):
@@ -62,7 +63,7 @@ class DeezerAPI:
             self.renew_timestamp = ceil(time())
             self.language = resp['results']['USER']['SETTING']['global']['language']
             
-            self.available_formats = ['MP3_128']
+            self.available_formats = []
             format_dict = {'web_hq': 'MP3_320', 'web_lossless': 'FLAC'}
             for k, v in format_dict.items():
                 if resp['results']['USER']['OPTIONS'][k]:
@@ -187,9 +188,17 @@ class DeezerAPI:
         return resp['data'][0]['media'][0]['sources'][0]['url']
     
     def get_legacy_track_url(self, md5_origin, format, id, media_version):
+        format_num = {
+            'MP3_MISC': '0',
+            'MP3_128': '1',
+            'MP4_RA1': '13',
+            'MP4_RA2': '14',
+            'MP4_RA3': '15'
+        }[format]
+
         # mashing a bunch of metadata and hashing it with MD5
         info = b"\xa4".join([i.encode() for i in [
-            md5_origin, format, str(id), str(media_version)
+            md5_origin, format_num, str(id), str(media_version)
         ]])
         hash = MD5.new(info).hexdigest()
 
@@ -228,3 +237,13 @@ class DeezerAPI:
                     cipher = Blowfish.new(bf_key, Blowfish.MODE_CBC, b"\x00\x01\x02\x03\x04\x05\x06\x07")
                     chunk = cipher.decrypt(chunk)
                 file.write(chunk)
+
+    def check_format(self, md5_origin, format, id, media_version):
+        url = self.get_legacy_track_url(md5_origin, format, id, media_version)
+        try:
+            resp = self.s.head(url)
+            resp.raise_for_status()
+        except HTTPError:
+            return False
+        else:
+            return True
