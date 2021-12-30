@@ -63,7 +63,7 @@ class DeezerAPI:
             self.renew_timestamp = ceil(time())
             self.language = resp['results']['USER']['SETTING']['global']['language']
             
-            self.available_formats = []
+            self.available_formats = ['MP3_128']
             format_dict = {'web_hq': 'MP3_320', 'web_lossless': 'FLAC'}
             for k, v in format_dict.items():
                 if resp['results']['USER']['OPTIONS'][k]:
