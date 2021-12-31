@@ -5,6 +5,7 @@ from math import ceil
 from Cryptodome.Hash import MD5
 from Cryptodome.Cipher import Blowfish, AES
 from requests.models import HTTPError
+from tqdm import tqdm
 from utils.utils import create_requests_session
 
 class APIError(Exception):
@@ -227,6 +228,8 @@ class DeezerAPI:
         bf_key = self._get_blowfish_key(id)
         req = self.s.get(url, stream=True)
         req.raise_for_status()
+        size = int(req.headers['content-length'])
+        bar = tqdm(total=size, unit='B', unit_scale=True)
 
         with open(path, "ab") as file:
             for i, chunk in enumerate(req.iter_content(2048)):
@@ -237,6 +240,9 @@ class DeezerAPI:
                     cipher = Blowfish.new(bf_key, Blowfish.MODE_CBC, b"\x00\x01\x02\x03\x04\x05\x06\x07")
                     chunk = cipher.decrypt(chunk)
                 file.write(chunk)
+                bar.update(len(chunk))
+        
+        bar.close()
 
     def check_format(self, md5_origin, format, id, media_version):
         url = self.get_legacy_track_url(md5_origin, format, id, media_version)
