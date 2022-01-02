@@ -246,7 +246,7 @@ class ModuleInterface:
         # placeholder images can't be requested as pngs
         file_type = cover_options.file_type if cover_md5 != '' and cover_options.file_type is not ImageFileTypeEnum.webp else ImageFileTypeEnum.jpg
         
-        url = self.get_image_url(cover_md5, ImageType.cover, cover_options.file_type, cover_options.resolution, self.compression_nums[cover_options.compression])
+        url = self.get_image_url(cover_md5, ImageType.cover, file_type, cover_options.resolution, self.compression_nums[cover_options.compression])
         return CoverInfo(url=url, file_type=file_type)
 
     def get_track_lyrics(self, track_id: str, data={}) -> LyricsInfo:
