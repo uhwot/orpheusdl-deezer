@@ -208,7 +208,7 @@ class ModuleInterface:
 
         user_upped_dict = {}
         for t in playlist['SONGS']['data']:
-            if t['SNG_ID'] < 0:
+            if int(t['SNG_ID']) < 0:
                 user_upped_dict[t['SNG_ID']] = t
 
         return PlaylistInfo(
