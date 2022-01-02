@@ -184,6 +184,9 @@ class ModuleInterface:
         album = data[album_id] if album_id in data else self.session.get_album(album_id)
         a_data = album['DATA']
 
+        # placeholder images can't be requested as pngs
+        cover_type = self.default_cover.file_type if a_data['ALB_PICTURE'] != '' else ImageFileTypeEnum.jpg
+
         return AlbumInfo(
             name = a_data['ALB_TITLE'],
             artist = a_data['ART_NAME'],
@@ -191,14 +194,17 @@ class ModuleInterface:
             release_year = a_data['PHYSICAL_RELEASE_DATE'].split('-')[0],
             explicit = a_data['EXPLICIT_ALBUM_CONTENT']['EXPLICIT_LYRICS_STATUS'] in (1, 4),
             artist_id = a_data['ART_ID'],
-            cover_url = self.get_image_url(a_data['ALB_PICTURE'], ImageType.cover, self.default_cover.file_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
-            cover_type = self.default_cover.file_type,
+            cover_url = self.get_image_url(a_data['ALB_PICTURE'], ImageType.cover, cover_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
+            cover_type = cover_type,
             all_track_cover_jpg_url = self.get_image_url(a_data['ALB_PICTURE'], ImageType.cover, ImageFileTypeEnum.jpg, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
         )
 
     def get_playlist_info(self, playlist_id: str, data={}) -> PlaylistInfo:
         playlist = data[playlist_id] if playlist_id in data else self.session.get_playlist(playlist_id, -1, 0)
         p_data = playlist['DATA']
+
+        # placeholder images can't be requested as pngs
+        cover_type = self.default_cover.file_type if p_data['PLAYLIST_PICTURE'] != '' else ImageFileTypeEnum.jpg
 
         user_upped_dict = {}
         for t in playlist['SONGS']['data']:
@@ -211,8 +217,8 @@ class ModuleInterface:
             tracks = [t['SNG_ID'] for t in playlist['SONGS']['data']],
             release_year = p_data['DATE_ADD'].split('-')[0],
             creator_id = p_data['PARENT_USER_ID'],
-            cover_url = self.get_image_url(p_data['PLAYLIST_PICTURE'], ImageType.playlist, self.default_cover.file_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
-            cover_type = self.default_cover.file_type,
+            cover_url = self.get_image_url(p_data['PLAYLIST_PICTURE'], ImageType.playlist, cover_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
+            cover_type = cover_type,
             description = p_data['DESCRIPTION'],
             track_extra_kwargs = {'data': user_upped_dict}
         )
