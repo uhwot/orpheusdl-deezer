@@ -149,7 +149,7 @@ class ModuleInterface:
             artists = [a['ART_NAME'] for a in t_data['ARTISTS']] if 'ARTISTS' in t_data else [t_data['ART_NAME']],
             tags = tags,
             codec = codec,
-            cover_url = self.get_image_url(t_data['ALB_PICTURE'], ImageType.cover, self.default_cover.file_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
+            cover_url = self.get_image_url(t_data['ALB_PICTURE'], ImageType.cover, ImageFileTypeEnum.jpg, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
             release_year = t_data['PHYSICAL_RELEASE_DATE'].split('-')[0] if 'PHYSICAL_RELEASE_DATE' in t_data else None,
             explicit = t_data['EXPLICIT_LYRICS'] == '1' if 'EXPLICIT_LYRICS' in t_data else None,
             artist_id = t_data['ART_ID'],
