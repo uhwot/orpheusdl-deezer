@@ -80,7 +80,6 @@ class ModuleInterface:
             t_data = t_data['FALLBACK']
 
         tags = Tags(
-            album_artist = t_data['ART_NAME'],
             track_number = t_data.get('TRACK_NUMBER'),
             copyright = t_data.get('COPYRIGHT'),
             isrc = t_data['ISRC'],
