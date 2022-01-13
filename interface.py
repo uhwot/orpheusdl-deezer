@@ -237,6 +237,10 @@ class ModuleInterface:
         credits = data[track_id] if track_id in data else self.session.get_track_contributors(track_id)
         if not credits:
             return []
+
+        # fixes tagging conflict with normal artist tag, it's redundant anyways
+        credits.pop('artist', None)
+
         return [CreditsInfo(k, v) for k, v in credits.items()]
 
     def get_track_cover(self, track_id: str, cover_options: CoverOptions, data={}) -> CoverInfo:
