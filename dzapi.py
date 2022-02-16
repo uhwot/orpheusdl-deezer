@@ -1,4 +1,3 @@
-from hashlib import md5
 from random import randint
 from time import time
 from math import ceil
@@ -73,13 +72,13 @@ class DeezerAPI:
         return resp['results']
 
     def login_via_email(self, email, password):
-        password = md5(password.encode()).hexdigest()
+        password = MD5.new(password.encode()).hexdigest()
 
         params = {
             'app_id': self.client_id,
             'login': email,
             'password': password,
-            'hash': md5((self.client_id + email + password + self.client_secret).encode()).hexdigest(),
+            'hash': MD5.new((self.client_id + email + password + self.client_secret).encode()).hexdigest(),
         }
 
         json = self.s.get('https://connect.deezer.com/oauth/user_auth.php', params=params).json()
