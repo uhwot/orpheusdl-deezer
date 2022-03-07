@@ -313,6 +313,9 @@ class ModuleInterface:
                 ) for i in results]
 
     def get_image_url(self, md5, img_type: ImageType, file_type: ImageFileTypeEnum, res, compression):
+        if res > 1920:
+            res = 1920
+
         filename = {
             ImageFileTypeEnum.jpg: f'{res}x{res}-000000-{compression}-0-0.jpg',
             ImageFileTypeEnum.png: f'{res}x{res}-none-100-0-0.png'
