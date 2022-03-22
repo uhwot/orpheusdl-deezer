@@ -61,7 +61,7 @@ class ModuleInterface:
         self.tsc.set('arl', arl)
         self.check_sub()
 
-    def get_track_info(self, track_id: str, quality_tier: QualityEnum, codec_options: CodecOptions, data={}) -> TrackInfo:
+    def get_track_info(self, track_id: str, quality_tier: QualityEnum, codec_options: CodecOptions, data={}, total_tracks=None, total_discs=None) -> TrackInfo:
         is_user_upped = int(track_id) < 0
         format = self.quality_parse[quality_tier] if not is_user_upped else 'MP3_MISC'
 
@@ -85,7 +85,9 @@ class ModuleInterface:
             isrc = t_data['ISRC'],
             disc_number = t_data.get('DISK_NUMBER'),
             replay_gain = t_data.get('GAIN'),
-            release_date = t_data.get('PHYSICAL_RELEASE_DATE')
+            release_date = t_data.get('PHYSICAL_RELEASE_DATE'),
+            total_tracks = total_tracks,
+            total_discs = total_discs
         )
 
         error = None
@@ -186,16 +188,25 @@ class ModuleInterface:
         # placeholder images can't be requested as pngs
         cover_type = self.default_cover.file_type if a_data['ALB_PICTURE'] != '' else ImageFileTypeEnum.jpg
 
+        tracks_data = album['SONGS']['data']
+        try:
+            total_tracks = int(tracks_data[-1]['TRACK_NUMBER'])
+            total_discs = int(tracks_data[-1]['DISK_NUMBER'])
+        except IndexError:
+            total_tracks = 0
+            total_discs = 0
+
         return AlbumInfo(
             name = a_data['ALB_TITLE'],
             artist = a_data['ART_NAME'],
-            tracks = [track['SNG_ID'] for track in album['SONGS']['data']],
+            tracks = [track['SNG_ID'] for track in tracks_data],
             release_year = a_data['PHYSICAL_RELEASE_DATE'].split('-')[0],
             explicit = a_data['EXPLICIT_ALBUM_CONTENT']['EXPLICIT_LYRICS_STATUS'] in (1, 4),
             artist_id = a_data['ART_ID'],
             cover_url = self.get_image_url(a_data['ALB_PICTURE'], ImageType.cover, cover_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
             cover_type = cover_type,
             all_track_cover_jpg_url = self.get_image_url(a_data['ALB_PICTURE'], ImageType.cover, ImageFileTypeEnum.jpg, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
+            track_extra_kwargs = {'total_tracks': total_tracks, 'total_discs': total_discs}
         )
 
     def get_playlist_info(self, playlist_id: str, data={}) -> PlaylistInfo:
