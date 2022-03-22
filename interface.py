@@ -313,12 +313,12 @@ class ModuleInterface:
                 ) for i in results]
 
     def get_image_url(self, md5, img_type: ImageType, file_type: ImageFileTypeEnum, res, compression):
-        if res > 1920:
-            res = 1920
+        if res > 3000:
+            res = 3000
 
         filename = {
-            ImageFileTypeEnum.jpg: f'{res}x{res}-000000-{compression}-0-0.jpg',
-            ImageFileTypeEnum.png: f'{res}x{res}-none-100-0-0.png'
+            ImageFileTypeEnum.jpg: f'{res}x0-000000-{compression}-0-0.jpg',
+            ImageFileTypeEnum.png: f'{res}x0-none-100-0-0.png'
         }[file_type]
 
         return f'https://cdns-images.dzcdn.net/images/{img_type.name}/{md5}/{filename}'
