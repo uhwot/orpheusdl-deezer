@@ -1,4 +1,7 @@
+import re
 from enum import Enum, auto
+from urllib.parse import urlparse
+from requests import get
 from utils.models import *
 from utils.utils import create_temp_filename
 from .dzapi import DeezerAPI
@@ -10,7 +13,8 @@ module_information = ModuleInformation(
     global_settings = {'client_id': '447462', 'client_secret': 'a83bf7f38ad2f137e444727cfc3775cf', 'bf_secret': '', 'track_url_key': ''},
     session_settings = {'email': '', 'password': ''},
     session_storage_variables = ['arl'],
-    netlocation_constant = 'deezer', 
+    netlocation_constant = 'deezer',
+    url_decoding = ManualEnum.manual,
     test_url = 'https://www.deezer.com/track/3135556',
 )
 
@@ -60,6 +64,24 @@ class ModuleInterface:
         arl, _ = self.session.login_via_email(email, password)
         self.tsc.set('arl', arl)
         self.check_sub()
+
+    def custom_url_parse(self, link):
+        url = urlparse(link)
+
+        if url.hostname == 'deezer.page.link':
+            r = get(link, allow_redirects=False)
+            if r.status_code != 302:
+                raise self.exception(f'Invalid URL: {link}')
+            url = urlparse(r.headers['Location'])
+        
+        path_match = re.match(r'^\/(?:[a-z]{2}\/)?(track|album|artist|playlist)\/(\d+)\/?$', url.path)
+        if not path_match:
+            raise self.exception(f'Invalid URL: {link}')
+        
+        return MediaIdentification(
+            media_type = DownloadTypeEnum[path_match.group(1)],
+            media_id = path_match.group(2)
+        )
 
     def get_track_info(self, track_id: str, quality_tier: QualityEnum, codec_options: CodecOptions, data={}, total_tracks=None, total_discs=None) -> TrackInfo:
         is_user_upped = int(track_id) < 0
