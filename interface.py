@@ -83,7 +83,7 @@ class ModuleInterface:
             media_id = path_match.group(2)
         )
 
-    def get_track_info(self, track_id: str, quality_tier: QualityEnum, codec_options: CodecOptions, data={}, total_tracks=None, total_discs=None) -> TrackInfo:
+    def get_track_info(self, track_id: str, quality_tier: QualityEnum, codec_options: CodecOptions, data={}, alb_tags={}) -> TrackInfo:
         is_user_upped = int(track_id) < 0
         format = self.quality_parse[quality_tier] if not is_user_upped else 'MP3_MISC'
 
@@ -108,9 +108,10 @@ class ModuleInterface:
             disc_number = t_data.get('DISK_NUMBER'),
             replay_gain = t_data.get('GAIN'),
             release_date = t_data.get('PHYSICAL_RELEASE_DATE'),
-            total_tracks = total_tracks,
-            total_discs = total_discs
         )
+
+        for key in alb_tags:
+            setattr(tags, key, alb_tags[key])
 
         error = None
         if not is_user_upped:
@@ -217,6 +218,12 @@ class ModuleInterface:
         except IndexError:
             total_tracks = 0
             total_discs = 0
+        
+        alb_tags = {
+            'total_tracks': total_tracks,
+            'total_discs': total_discs,
+            'upc': a_data['UPC'],
+        }
 
         return AlbumInfo(
             name = a_data['ALB_TITLE'],
@@ -228,7 +235,7 @@ class ModuleInterface:
             cover_url = self.get_image_url(a_data['ALB_PICTURE'], ImageType.cover, cover_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
             cover_type = cover_type,
             all_track_cover_jpg_url = self.get_image_url(a_data['ALB_PICTURE'], ImageType.cover, ImageFileTypeEnum.jpg, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
-            track_extra_kwargs = {'total_tracks': total_tracks, 'total_discs': total_discs}
+            track_extra_kwargs = {'alb_tags': alb_tags},
         )
 
     def get_playlist_info(self, playlist_id: str, data={}) -> PlaylistInfo:
