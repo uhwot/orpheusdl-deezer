@@ -73,11 +73,11 @@ class ModuleInterface:
             if r.status_code != 302:
                 raise self.exception(f'Invalid URL: {link}')
             url = urlparse(r.headers['Location'])
-        
+
         path_match = re.match(r'^\/(?:[a-z]{2}\/)?(track|album|artist|playlist)\/(\d+)\/?$', url.path)
         if not path_match:
             raise self.exception(f'Invalid URL: {link}')
-        
+
         return MediaIdentification(
             media_type = DownloadTypeEnum[path_match.group(1)],
             media_id = path_match.group(2)
@@ -115,10 +115,11 @@ class ModuleInterface:
 
         error = None
         if not is_user_upped:
+            premium_formats = ['FLAC', 'MP3_320']
             countries = t_data['AVAILABLE_COUNTRIES']['STREAM_ADS']
             if not countries:
                 error = 'Track not available'
-            elif format in ('MP3_320', 'FLAC'):
+            elif format in premium_formats:
                 formats_360 = ['MP4_RA3', 'MP4_RA2', 'MP4_RA1']
                 if quality_tier is QualityEnum.HIFI and codec_options.spatial_codecs:
                     # deezer has three different 360ra qualities, so this checks the highest quality one available
@@ -127,15 +128,29 @@ class ModuleInterface:
                         if self.session.check_format(t_data['MD5_ORIGIN'], f, t_data['SNG_ID'], t_data['MEDIA_VERSION']):
                             format = f
                             break
-                
+
                 if format not in formats_360:
+                    formats_to_check = premium_formats
+                    while len(formats_to_check) != 0:
+                        if formats_to_check[0] != format:
+                            formats_to_check.pop(0)
+                        else:
+                            break
+
+                    temp_f = None
+                    for f in formats_to_check:
+                        if t_data[f'FILESIZE_{f}'] != '0':
+                            temp_f = f
+                            break
+                    if temp_f is None:
+                        temp_f = 'MP3_128'
+                    format = temp_f
+
                     if self.session.country not in countries:
                         error = 'Track not available in your country, try downloading in 128/360RA instead'
                     elif format not in self.session.available_formats:
                         error = 'Format not available by your subscription'
-                    elif t_data[f'FILESIZE_{format}'] == '0':
-                        error = 'Format not available'
-                
+
 
         codec = {
             'MP3_MISC': CodecEnum.MP3,
@@ -218,7 +233,7 @@ class ModuleInterface:
         except IndexError:
             total_tracks = 0
             total_discs = 0
-        
+
         alb_tags = {
             'total_tracks': total_tracks,
             'total_discs': total_discs,
@@ -288,7 +303,7 @@ class ModuleInterface:
 
         # placeholder images can't be requested as pngs
         file_type = cover_options.file_type if cover_md5 != '' and cover_options.file_type is not ImageFileTypeEnum.webp else ImageFileTypeEnum.jpg
-        
+
         url = self.get_image_url(cover_md5, ImageType.cover, file_type, cover_options.resolution, self.compression_nums[cover_options.compression])
         return CoverInfo(url=url, file_type=file_type)
 
@@ -362,7 +377,7 @@ class ModuleInterface:
         }[file_type]
 
         return f'https://cdns-images.dzcdn.net/images/{img_type.name}/{md5}/{filename}'
-    
+
     def check_sub(self):
         if not self.disable_subscription_check and (self.format not in self.session.available_formats):
             print('Deezer: quality set in the settings is not accessible by the current subscription')
