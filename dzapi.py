@@ -246,7 +246,7 @@ class DeezerAPI:
     def check_format(self, md5_origin, format, id, media_version):
         url = self.get_legacy_track_url(md5_origin, format, id, media_version)
         try:
-            resp = self.s.head(url)
+            resp = self.s.get(url, stream=True)
             resp.raise_for_status()
         except HTTPError:
             return False
