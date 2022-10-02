@@ -189,7 +189,7 @@ class ModuleInterface:
             tags = tags,
             codec = codec,
             cover_url = self.get_image_url(t_data['ALB_PICTURE'], ImageType.cover, ImageFileTypeEnum.jpg, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
-            release_year = t_data['PHYSICAL_RELEASE_DATE'].split('-')[0] if 'PHYSICAL_RELEASE_DATE' in t_data else None,
+            release_year = tags.release_date.split('-')[0] if tags.release_date else None,
             explicit = t_data['EXPLICIT_LYRICS'] == '1' if 'EXPLICIT_LYRICS' in t_data else None,
             artist_id = t_data['ART_ID'],
             bit_depth = 24 if codec is CodecEnum.MHA1 else 16,
@@ -238,13 +238,16 @@ class ModuleInterface:
             'total_tracks': total_tracks,
             'total_discs': total_discs,
             'upc': a_data['UPC'],
+            'label': a_data['LABEL_NAME'],
+            'album_artist': a_data['ART_NAME'],
+            'release_date': a_data.get('ORIGINAL_RELEASE_DATE') or a_data['PHYSICAL_RELEASE_DATE']
         }
 
         return AlbumInfo(
             name = a_data['ALB_TITLE'],
             artist = a_data['ART_NAME'],
             tracks = [track['SNG_ID'] for track in tracks_data],
-            release_year = a_data['PHYSICAL_RELEASE_DATE'].split('-')[0],
+            release_year = alb_tags['release_date'].split('-')[0],
             explicit = a_data['EXPLICIT_ALBUM_CONTENT']['EXPLICIT_LYRICS_STATUS'] in (1, 4),
             artist_id = a_data['ART_ID'],
             cover_url = self.get_image_url(a_data['ALB_PICTURE'], ImageType.cover, cover_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
