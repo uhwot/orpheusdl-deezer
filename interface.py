@@ -69,7 +69,7 @@ class ModuleInterface:
         url = urlparse(link)
 
         if url.hostname == 'deezer.page.link':
-            r = get(link, allow_redirects=False)
+            r = get('https://deezer.page.link' + url.path, allow_redirects=False)
             if r.status_code != 302:
                 raise self.exception(f'Invalid URL: {link}')
             url = urlparse(r.headers['Location'])
