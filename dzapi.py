@@ -193,7 +193,10 @@ class DeezerAPI:
             'MP3_128': '1',
             'MP4_RA1': '13',
             'MP4_RA2': '14',
-            'MP4_RA3': '15'
+            'MP4_RA3': '15',
+            'MHM1_RA1': '16',
+            'MHM1_RA2': '17',
+            'MHM1_RA3': '18'
         }[format]
 
         # mashing a bunch of metadata and hashing it with MD5

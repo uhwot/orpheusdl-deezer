@@ -10,7 +10,7 @@ from .dzapi import DeezerAPI
 module_information = ModuleInformation(
     service_name = 'Deezer',
     module_supported_modes = ModuleModes.download | ModuleModes.lyrics | ModuleModes.covers | ModuleModes.credits,
-    global_settings = {'client_id': '447462', 'client_secret': 'a83bf7f38ad2f137e444727cfc3775cf', 'bf_secret': '', 'track_url_key': ''},
+    global_settings = {'client_id': '447462', 'client_secret': 'a83bf7f38ad2f137e444727cfc3775cf', 'bf_secret': '', 'track_url_key': '', 'prefer_mhm1': False},
     session_settings = {'email': '', 'password': ''},
     session_storage_variables = ['arl'],
     netlocation_constant = 'deezer',
@@ -28,7 +28,7 @@ class ImageType(Enum):
 
 class ModuleInterface:
     def __init__(self, module_controller: ModuleController):
-        settings = module_controller.module_settings
+        self.settings = module_controller.module_settings
         self.exception = module_controller.module_error
         self.tsc = module_controller.temporary_settings_controller
         self.default_cover = module_controller.orpheus_options.default_cover_options
@@ -36,13 +36,13 @@ class ModuleInterface:
         if self.default_cover.file_type is ImageFileTypeEnum.webp:
             self.default_cover.file_type = ImageFileTypeEnum.jpg
 
-        self.session = DeezerAPI(self.exception, settings['client_id'], settings['client_secret'], settings['bf_secret'], settings['track_url_key'])
+        self.session = DeezerAPI(self.exception, self.settings['client_id'], self.settings['client_secret'], self.settings['bf_secret'], self.settings['track_url_key'])
         arl = module_controller.temporary_settings_controller.read('arl')
         if arl:
             try:
                 self.session.login_via_arl(arl)
             except self.exception:
-                self.login(settings['email'], settings['password'])
+                self.login(self.settings['email'], self.settings['password'])
 
         self.quality_parse = {
             QualityEnum.MINIMUM: 'MP3_128',
@@ -120,7 +120,7 @@ class ModuleInterface:
             if not countries:
                 error = 'Track not available'
             elif format in premium_formats:
-                formats_360 = ['MP4_RA3', 'MP4_RA2', 'MP4_RA1']
+                formats_360 = ['MP4_RA3', 'MP4_RA2', 'MP4_RA1'] if not self.settings['prefer_mhm1'] else ['MHM1_RA3', 'MHM1_RA2', 'MHM1_RA1']
                 if quality_tier is QualityEnum.HIFI and codec_options.spatial_codecs:
                     # deezer has three different 360ra qualities, so this checks the highest quality one available
                     # if there isn't any it just gets FLAC instead
@@ -160,6 +160,9 @@ class ModuleInterface:
             'MP4_RA1': CodecEnum.MHA1,
             'MP4_RA2': CodecEnum.MHA1,
             'MP4_RA3': CodecEnum.MHA1,
+            'MHM1_RA1': CodecEnum.MHA1,
+            'MHM1_RA2': CodecEnum.MHA1,
+            'MHM1_RA3': CodecEnum.MHA1,
         }[format]
 
         bitrate = {
@@ -170,6 +173,9 @@ class ModuleInterface:
             'MP4_RA1': None,
             'MP4_RA2': None,
             'MP4_RA3': None,
+            'MHM1_RA1': None,
+            'MHM1_RA2': None,
+            'MHM1_RA3': None,
         }[format]
 
         download_extra_kwargs = {
