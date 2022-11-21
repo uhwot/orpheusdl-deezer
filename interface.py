@@ -160,9 +160,9 @@ class ModuleInterface:
             'MP4_RA1': CodecEnum.MHA1,
             'MP4_RA2': CodecEnum.MHA1,
             'MP4_RA3': CodecEnum.MHA1,
-            'MHM1_RA1': CodecEnum.MHA1,
-            'MHM1_RA2': CodecEnum.MHA1,
-            'MHM1_RA3': CodecEnum.MHA1,
+            'MHM1_RA1': CodecEnum.MHM1,
+            'MHM1_RA2': CodecEnum.MHM1,
+            'MHM1_RA3': CodecEnum.MHM1,
         }[format]
 
         bitrate = {
