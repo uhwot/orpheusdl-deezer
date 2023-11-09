@@ -46,7 +46,7 @@ class DeezerAPI:
             'input': 3,
             'api_version': 1.0,
             'api_token': api_token,
-            'cid': randint(0, 1e9),
+            'cid': randint(0, 1_000_000_000),
         }
 
         resp = self.s.post(self.gw_light_url, params=params, json=payload).json()
