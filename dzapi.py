@@ -72,6 +72,9 @@ class DeezerAPI:
         return resp['results']
 
     def login_via_email(self, email, password):
+        # server sends set-cookie header with new sid
+        self.s.get('https://www.deezer.com')
+        
         password = MD5.new(password.encode()).hexdigest()
 
         params = {
@@ -81,15 +84,11 @@ class DeezerAPI:
             'hash': MD5.new((self.client_id + email + password + self.client_secret).encode()).hexdigest(),
         }
 
+        # server sends set-cookie header with account sid
         json = self.s.get('https://connect.deezer.com/oauth/user_auth.php', params=params).json()
 
         if 'error' in json:
             raise self.exception('Error while getting access token, check your credentials')
-
-        headers = {'Authorization': f'Bearer {json["access_token"]}'}
-
-        # server sends set-cookie header with account sid
-        self.s.get('https://api.deezer.com/platform/generic/track/80085', headers=headers)
 
         arl = self._api_call('user.getArl')
 
