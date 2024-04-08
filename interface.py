@@ -385,7 +385,7 @@ class ModuleInterface:
             ImageFileTypeEnum.png: f'{res}x0-none-100-0-0.png'
         }[file_type]
 
-        return f'https://cdns-images.dzcdn.net/images/{img_type.name}/{md5}/{filename}'
+        return f'https://e-cdns-images.dzcdn.net/images/{img_type.name}/{md5}/{filename}'
 
     def check_sub(self):
         if not self.disable_subscription_check and (self.format not in self.session.available_formats):
