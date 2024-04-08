@@ -215,7 +215,7 @@ class DeezerAPI:
         result = self.legacy_url_cipher.encrypt(hash_metadata).hex()
 
         # getting url
-        return f"https://cdns-proxy-{md5_origin[0]}.dzcdn.net/mobile/1/{result}"
+        return f"https://e-cdns-proxy-{md5_origin[0]}.dzcdn.net/mobile/1/{result}"
     
     def _get_blowfish_key(self, track_id):
         # yeah, you use the bytes of the hex digest of the hash. bruh moment
