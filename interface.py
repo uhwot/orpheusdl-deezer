@@ -122,6 +122,8 @@ class ModuleInterface:
             countries = t_data['AVAILABLE_COUNTRIES']['STREAM_ADS']
             if not countries:
                 error = 'Track not available'
+            elif self.session.country not in countries:
+                error = 'Track not available in your country'
             else:
                 formats_to_check = premium_formats
                 while len(formats_to_check) != 0:
@@ -139,9 +141,7 @@ class ModuleInterface:
                     temp_f = 'MP3_128'
                 format = temp_f
 
-                if self.session.country not in countries:
-                    error = 'Track not available in your country, try downloading in 128/360RA instead'
-                elif format not in self.session.available_formats:
+                if format not in self.session.available_formats:
                     error = 'Format not available by your subscription'
 
         codec = {
