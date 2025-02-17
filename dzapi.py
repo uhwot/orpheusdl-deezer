@@ -2,8 +2,7 @@ from random import randint
 from time import time
 from math import ceil
 from Cryptodome.Hash import MD5
-from Cryptodome.Cipher import Blowfish, AES
-from requests.models import HTTPError
+from Cryptodome.Cipher import Blowfish
 from tqdm import tqdm
 from utils.utils import create_requests_session
 
@@ -16,14 +15,13 @@ class APIError(Exception):
         return ', '.join((self.type, self.msg, str(self.payload)))
 
 class DeezerAPI:
-    def __init__(self, exception, client_id, client_secret, bf_secret, track_url_key):
+    def __init__(self, exception, client_id, client_secret, bf_secret):
         self.gw_light_url = 'https://www.deezer.com/ajax/gw-light.php'
         self.api_token = ''
         self.exception = exception
         self.client_id = client_id
         self.client_secret = client_secret
 
-        self.legacy_url_cipher = AES.new(track_url_key.encode('ascii'), AES.MODE_ECB)
         self.bf_secret = bf_secret.encode('ascii')
 
         self.s = create_requests_session()
@@ -72,7 +70,7 @@ class DeezerAPI:
         return resp['results']
 
     def login_via_email(self, email, password):
-        # server sends set-cookie header with new sid
+        # server sends set-cookie header with anonymous sid
         self.s.get('https://www.deezer.com')
         
         password = MD5.new(password.encode()).hexdigest()
@@ -186,37 +184,6 @@ class DeezerAPI:
         resp = self.s.post('https://media.deezer.com/v1/get_url', json=json).json()
         return resp['data'][0]['media'][0]['sources'][0]['url']
     
-    def get_legacy_track_url(self, md5_origin, format, id, media_version):
-        format_num = {
-            'MP3_MISC': '0',
-            'MP3_128': '1',
-            'MP4_RA1': '13',
-            'MP4_RA2': '14',
-            'MP4_RA3': '15',
-            'MHM1_RA1': '16',
-            'MHM1_RA2': '17',
-            'MHM1_RA3': '18'
-        }[format]
-
-        # mashing a bunch of metadata and hashing it with MD5
-        info = b"\xa4".join([i.encode() for i in [
-            md5_origin, format_num, str(id), str(media_version)
-        ]])
-        hash = MD5.new(info).hexdigest()
-
-        # hash + metadata
-        hash_metadata = hash.encode() + b"\xa4" + info + b"\xa4"
-
-        # padding
-        while len(hash_metadata) % 16 > 0:
-            hash_metadata += b"\0"
-
-        # AES encryption
-        result = self.legacy_url_cipher.encrypt(hash_metadata).hex()
-
-        # getting url
-        return f"https://e-cdns-proxy-{md5_origin[0]}.dzcdn.net/mobile/1/{result}"
-    
     def _get_blowfish_key(self, track_id):
         # yeah, you use the bytes of the hex digest of the hash. bruh moment
         md5_id = MD5.new(str(track_id).encode()).hexdigest().encode('ascii')
@@ -244,13 +211,3 @@ class DeezerAPI:
                 bar.update(len(chunk))
         
         bar.close()
-
-    def check_format(self, md5_origin, format, id, media_version):
-        url = self.get_legacy_track_url(md5_origin, format, id, media_version)
-        try:
-            resp = self.s.get(url, stream=True)
-            resp.raise_for_status()
-        except HTTPError:
-            return False
-        else:
-            return True
