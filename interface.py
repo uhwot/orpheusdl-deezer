@@ -13,7 +13,7 @@ module_information = ModuleInformation(
     global_settings = {'client_id': '447462', 'client_secret': 'a83bf7f38ad2f137e444727cfc3775cf', 'bf_secret': ''},
     session_settings = {'email': '', 'password': ''},
     session_storage_variables = ['arl'],
-    netlocation_constant = 'deezer',
+    netlocation_constant = ['deezer', 'dzr'],
     url_decoding = ManualEnum.manual,
     test_url = 'https://www.deezer.com/track/3135556',
 )
@@ -68,8 +68,8 @@ class ModuleInterface:
     def custom_url_parse(self, link):
         url = urlparse(link)
 
-        if url.hostname == 'deezer.page.link':
-            r = get('https://deezer.page.link' + url.path, allow_redirects=False)
+        if url.hostname == 'dzr.page.link':
+            r = get('https://dzr.page.link' + url.path, allow_redirects=False)
             if r.status_code != 302:
                 raise self.exception(f'Invalid URL: {link}')
             url = urlparse(r.headers['Location'])
