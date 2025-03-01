@@ -14,17 +14,14 @@
 # Configuration
 ## Global
 ```download_quality```:
-| Value      | Format                                                                       |
-| ---------- | ---------------------------------------------------------------------------- |
-| "hifi"     | 16-bit 44.1kHz FLAC / 360RA if available and ```spatial_codecs``` is enabled |
-| "lossless" | 16-bit 44.1kHz FLAC                                                          |
-| "high"     | MP3 320kbps                                                                  |
-| "medium"   | MP3 320kbps                                                                  |
-| "low"      | MP3 128kbps                                                                  |
-| "minimum"  | MP3 128kbps                                                                  |
-
-```spatial_codecs```:\
-Enables 360RA downloads if ```download_quality``` is set to ```hifi```
+| Value      | Format              |
+| ---------- | ------------------- |
+| "hifi"     | 16-bit 44.1kHz FLAC |
+| "lossless" | 16-bit 44.1kHz FLAC |
+| "high"     | MP3 320kbps         |
+| "medium"   | MP3 320kbps         |
+| "low"      | MP3 128kbps         |
+| "minimum"  | MP3 128kbps         |
 
 ```main_resolution```:\
 Maxes out at 3000px\
@@ -36,7 +33,5 @@ If original cover size is smaller than the one specified, falls back to 1200px
 | `client_id`     | Client ID used for login                            |
 | `client_secret` | Client secret used for login                        |
 | `bf_secret`     | Constant for deriving key used for track decryption |
-| `track_url_key` | Key used for legacy track URL generation            |
-| `prefer_mhm1`   | Downloads MHM1 360RA formats instead of MHA1        |
 | `email`         | Account email                                       |
 | `password`      | Account password                                    |
