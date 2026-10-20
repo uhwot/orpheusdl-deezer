@@ -1,16 +1,18 @@
+import logging
 import re
 from enum import Enum
 from urllib.parse import urlparse
 from requests import get
+from requests.exceptions import RequestException
 from utils.models import *
 from utils.utils import create_temp_filename
-from .dzapi import DeezerAPI
+from .dzapi import DeezerAPI, APIError
 
 
 module_information = ModuleInformation(
     service_name = 'Deezer',
     module_supported_modes = ModuleModes.download | ModuleModes.lyrics | ModuleModes.covers | ModuleModes.credits,
-    global_settings = {'client_id': '447462', 'client_secret': 'a83bf7f38ad2f137e444727cfc3775cf', 'bf_secret': ''},
+    global_settings = {'client_id': '447462', 'client_secret': 'a83bf7f38ad2f137e444727cfc3775cf', 'bf_secret': '', 'quality_format': '{bit_depth}B-{sample_rate}kHz'},
     session_settings = {'email': '', 'password': ''},
     session_storage_variables = ['arl'],
     netlocation_constant = ['deezer', 'dzr'],
@@ -50,9 +52,11 @@ class ModuleInterface:
             QualityEnum.MEDIUM: 'MP3_320',
             QualityEnum.HIGH: 'MP3_320',
             QualityEnum.LOSSLESS: 'FLAC',
-            QualityEnum.HIFI: 'FLAC'
+            QualityEnum.HIFI: 'FLAC_24'
         }
         self.format = self.quality_parse[module_controller.orpheus_options.quality_tier]
+        self.quality_format = self.settings.get('quality_format', '')
+        self._probe_cache = {}
         self.compression_nums = {
             CoverCompressionEnum.high: 80,
             CoverCompressionEnum.low: 50
@@ -118,7 +122,7 @@ class ModuleInterface:
             if not t_data['RIGHTS']['STREAM_ADS_AVAILABLE']:
                 error = 'Cannot download track uploaded by another user'
         else:
-            premium_formats = ['FLAC', 'MP3_320']
+            premium_formats = ['FLAC_24', 'FLAC', 'MP3_320']
             countries = t_data['AVAILABLE_COUNTRIES']['STREAM_ADS']
             if not countries:
                 error = 'Track not available'
@@ -134,7 +138,8 @@ class ModuleInterface:
 
                 temp_f = None
                 for f in formats_to_check:
-                    if t_data[f'FILESIZE_{f}'] != '0':
+                    # FILESIZE_FLAC_24 can be an int instead of a string
+                    if str(t_data.get(f'FILESIZE_{f}', '0')) != '0':
                         temp_f = f
                         break
                 if temp_f is None:
@@ -149,14 +154,32 @@ class ModuleInterface:
             'MP3_128': CodecEnum.MP3,
             'MP3_320': CodecEnum.MP3,
             'FLAC': CodecEnum.FLAC,
+            'FLAC_24': CodecEnum.FLAC,
         }[format]
 
-        bitrate = {
-            'MP3_MISC': None,
-            'MP3_128': 128,
-            'MP3_320': 320,
-            'FLAC': 1411,
+        default_specs = {
+            'MP3_MISC': (16, 44.1, None),
+            'MP3_128': (16, 44.1, 128),
+            'MP3_320': (16, 44.1, 320),
+            'FLAC': (16, 44.1, 1411),
+            'FLAC_24': (24, 192.0, 9216),
         }[format]
+
+        # lossless specs vary per album, read the actual ones from the stream header
+        bit_depth, sample_rate, bitrate = default_specs
+        if format in ('FLAC', 'FLAC_24') and error is None:
+            specs = self._get_probed_specs(t_data['ALB_ID'], t_data, format)
+            if specs:
+                bit_depth = specs['bit_depth']
+                sample_rate = specs['sample_rate'] / 1000.0
+                # total_samples is exact but belongs to the probed track, the API only
+                # reports whole-second durations for the rest
+                if specs['probed_track'] == t_data['SNG_ID'] and specs['total_samples']:
+                    duration = specs['total_samples'] / specs['sample_rate']
+                else:
+                    duration = float(t_data['DURATION']) if t_data.get('DURATION') not in (None, '0') else None
+                if duration:
+                    bitrate = int(int(t_data[f'FILESIZE_{format}']) * 8 / duration / 1000)
 
         download_extra_kwargs = {
             'id': t_data['SNG_ID'],
@@ -176,8 +199,8 @@ class ModuleInterface:
             release_year = int(tags.release_date.split('-')[0]) if tags.release_date else None,
             explicit = t_data['EXPLICIT_LYRICS'] == '1' if 'EXPLICIT_LYRICS' in t_data else None,
             artist_id = t_data['ART_ID'],
-            bit_depth = 16,
-            sample_rate = 44.1,
+            bit_depth = bit_depth,
+            sample_rate = sample_rate,
             bitrate = bitrate,
             download_extra_kwargs = download_extra_kwargs,
             cover_extra_kwargs = {'data': {track_id: t_data['ALB_PICTURE']}},
@@ -216,7 +239,7 @@ class ModuleInterface:
         alb_tags = {
             'total_tracks': total_tracks,
             'total_discs': total_discs,
-            'upc': a_data['UPC'],
+            'upc': a_data.get('UPC'),
             'label': a_data['LABEL_NAME'],
             'album_artist': a_data['ART_NAME'],
             'release_date': a_data.get('ORIGINAL_RELEASE_DATE') or a_data['PHYSICAL_RELEASE_DATE']
@@ -224,11 +247,13 @@ class ModuleInterface:
 
         return AlbumInfo(
             name = a_data['ALB_TITLE'],
+            quality = self._get_album_quality(album_id, tracks_data),
             artist = a_data['ART_NAME'],
             tracks = [track['SNG_ID'] for track in tracks_data],
             release_year = alb_tags['release_date'].split('-')[0],
             explicit = a_data['EXPLICIT_ALBUM_CONTENT']['EXPLICIT_LYRICS_STATUS'] in (1, 4),
             artist_id = a_data['ART_ID'],
+            upc = a_data.get('UPC'),
             cover_url = self.get_image_url(a_data['ALB_PICTURE'], ImageType.cover, cover_type, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
             cover_type = cover_type,
             all_track_cover_jpg_url = self.get_image_url(a_data['ALB_PICTURE'], ImageType.cover, ImageFileTypeEnum.jpg, self.default_cover.resolution, self.compression_nums[self.default_cover.compression]),
@@ -266,6 +291,45 @@ class ModuleInterface:
             name = name,
             albums = self.session.get_artist_album_ids(artist_id, 0, -1, get_credited_albums),
         )
+
+    def _get_probed_specs(self, album_id, t_data, format):
+        # tracks of an album share their master, so bit depth and sample rate are probed once
+        # per album and format, total_samples stays track specific
+        cached = self._probe_cache.get((album_id, format))
+        if cached is not None:
+            return cached
+        try:
+            specs = self.session.probe_flac_specs(t_data['SNG_ID'], t_data['TRACK_TOKEN'], t_data['TRACK_TOKEN_EXPIRE'], format)
+            if specs:
+                specs['probed_track'] = t_data['SNG_ID']
+        except (APIError, self.exception, RequestException, KeyError) as e:
+            # probe is best-effort, fall back to tier defaults. KeyError is expected when a song
+            # entry has no stream token, the download path still surfaces real API changes
+            logging.debug(f'Deezer: failed to probe lossless specs for track {t_data.get("SNG_ID")}: {e}')
+            specs = None
+        self._probe_cache[(album_id, format)] = specs
+        return specs
+
+    def _get_album_quality(self, album_id, tracks_data):
+        if not self.quality_format:
+            return None
+
+        # best format any track in the album has, in the same fallback order used per track
+        premium_formats = ['FLAC_24', 'FLAC', 'MP3_320']
+        chain = premium_formats[premium_formats.index(self.format):] if self.format in premium_formats else [self.format]
+        for f in chain:
+            # pageAlbum song entries already carry the stream token, no extra pageTrack needed
+            track = next((t for t in tracks_data if str(t.get(f'FILESIZE_{f}', '0')) != '0'), None)
+            if track is None:
+                continue
+            bit_depth, sample_rate = (24, 192.0) if f == 'FLAC_24' else (16, 44.1)
+            if f in ('FLAC', 'FLAC_24'):
+                specs = self._get_probed_specs(album_id, track, f)
+                if specs:
+                    bit_depth = specs['bit_depth']
+                    sample_rate = specs['sample_rate'] / 1000.0
+            return self.quality_format.format(bit_depth=bit_depth, sample_rate=sample_rate)
+        return self.quality_format.format(bit_depth=16, sample_rate=44.1)
 
     def get_track_credits(self, track_id: str, data={}):
         if int(track_id) < 0:
