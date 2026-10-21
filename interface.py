@@ -72,9 +72,9 @@ class ModuleInterface:
     def custom_url_parse(self, link):
         url = urlparse(link)
 
-        if url.hostname == 'dzr.page.link':
-            r = get('https://dzr.page.link' + url.path, allow_redirects=False)
-            if r.status_code != 302:
+        while url.hostname == 'link.deezer.com':
+            r = get(url.geturl(), allow_redirects=False)
+            if r.status_code not in [301, 302]:
                 raise self.exception(f'Invalid URL: {link}')
             url = urlparse(r.headers['Location'])
 
