@@ -14,14 +14,19 @@
 # Configuration
 ## Global
 ```download_quality```:
-| Value      | Format              |
-| ---------- | ------------------- |
-| "hifi"     | 16-bit 44.1kHz FLAC |
-| "lossless" | 16-bit 44.1kHz FLAC |
-| "high"     | MP3 320kbps         |
-| "medium"   | MP3 320kbps         |
-| "low"      | MP3 128kbps         |
-| "minimum"  | MP3 128kbps         |
+| Value      | Format                                                      |
+| ---------- | ----------------------------------------------------------- |
+| "hifi"     | FLAC up to 24-bit 192kHz, falling back to 16-bit 44.1kHz FLAC |
+| "lossless" | 16-bit 44.1kHz FLAC                                         |
+| "high"     | MP3 320kbps                                                 |
+| "medium"   | MP3 320kbps                                                 |
+| "low"      | MP3 128kbps                                                 |
+| "minimum"  | MP3 128kbps                                                 |
+
+Note on lossless downloads:
+Track specs (bit depth and sample rate) are read from the stream header of the first probed track of each album
+Deezer HiFi reaches up to 24-bit 192kHz, most albums are 24-bit 96kHz or 16-bit 44.1kHz
+On albums mixing different masters (some tracks 24/96 and some 24/48 for example), the per-track console display and the ```{quality}``` album folder label only show that first track's specs, use a tool like ffprobe to check the actual specs of each file
 
 ```main_resolution```:\
 Maxes out at 3000px\
